@@ -27,6 +27,11 @@
 
 #define TURTLEBOT3_WAFFLE_MAX_LIN_VEL  0.26
 #define TURTLEBOT3_WAFFLE_MAX_ANG_VEL  1.82
+
+#define P3DX_MAX_LIN_VEL  0.26
+#define P3DX_MAX_ANG_VEL  1.82
+
+
 #define MAX_INPUT_VOLTAGE              2.8
 
 #if defined(TURTLEBOT3_BURGER)
@@ -35,6 +40,9 @@
 #elif defined(TURTLEBOT3_WAFFLE)
 #define MAX_LIN_VEL TURTLEBOT3_WAFFLE_MAX_LIN_VEL
 #define MAX_ANG_VEL TURTLEBOT3_WAFFLE_MAX_ANG_VEL
+#elif defined(P3DX)
+#define MAX_LIN_VEL P3DX_MAX_LIN_VEL
+#define MAX_ANG_VEL P3DX_MAX_ANG_VEL
 #else
 #error
 #endif
@@ -82,14 +90,15 @@ rcl_timer_t timer;
 
 #define NODE_NAME "twist_publisher"
 
-#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){error_loop();}}
+#define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){error_loop(__LINE__);}}
 #define RCSOFTCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){}}
 
 bool errorLedState = false;
 
+int reset_timer_cnt = 0;
 
-void error_loop(){
-  Serial.printf("Ultrasonic Sensor\nError\nSystem halted");
+void error_loop(int line){
+  Serial.printf("Joystick\nError\nSystem halted\nLine: %d\n", line);
   while(1){
 
 #if defined(MULTI_COLOR_LED)
@@ -117,6 +126,9 @@ void error_loop(){
             errorLedState = true;
         }
     delay(100);
+    if(reset_timer_cnt++ >= 50){
+      ESP.restart(); // Reset after 5 seconds
+    }
   }
 }
 
@@ -219,7 +231,7 @@ void setup() {
 #endif
 
   // create timer,
-  const unsigned int timer_timeout = 1000;
+  const unsigned int timer_timeout = 50;
   RCCHECK(rclc_timer_init_default(
     &timer,
     &support,
