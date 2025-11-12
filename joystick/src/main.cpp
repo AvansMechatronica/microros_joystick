@@ -21,34 +21,29 @@
   #define RGB_BRIGHTNESS 10 // Change white brightness (max 255)
 #endif
 
-
-#define TURTLEBOT3_BURGER_MAX_LIN_VEL  0.22
-#define TURTLEBOT3_BURGER_MAX_ANG_VEL  2.84
-
-#define TURTLEBOT3_WAFFLE_MAX_LIN_VEL  0.26
-#define TURTLEBOT3_WAFFLE_MAX_ANG_VEL  1.82
-
-#define P3DX_MAX_LIN_VEL  0.26
-#define P3DX_MAX_ANG_VEL  1.82
-
-
-#define MAX_INPUT_VOLTAGE              2.8
-
 #if defined(TURTLEBOT3_BURGER)
-#define MAX_LIN_VEL TURTLEBOT3_BURGER_MAX_LIN_VEL
-#define MAX_ANG_VEL TURTLEBOT3_BURGER_MAX_ANG_VEL
+#define WHEEL_SPEED_MAX   0.22f      // [m/s] maximale wielsnelheid
 #elif defined(TURTLEBOT3_WAFFLE)
-#define MAX_LIN_VEL TURTLEBOT3_WAFFLE_MAX_LIN_VEL
-#define MAX_ANG_VEL TURTLEBOT3_WAFFLE_MAX_ANG_VEL
+#define WHEEL_SPEED_MAX   0.22f      // [m/s] maximale wielsnelheid
 #elif defined(P3DX)
-#define MAX_LIN_VEL P3DX_MAX_LIN_VEL
-#define MAX_ANG_VEL P3DX_MAX_ANG_VEL
+#define WHEELS_Y_DISTANCE             0.34f //in meters
+#define WHEEL_SPEED_MAX               0.8f      // [m/s] maximale wielsnelheid
 #else
 #error
 #endif
 
-#define LINEAR_RESOLUTION (MAX_LIN_VEL/MAX_INPUT_VOLTAGE*2.0)// Half scale
-#define ANGULAR_RESOLUTION (MAX_ANG_VEL/MAX_INPUT_VOLTAGE*2.0)// Half scale
+
+// === Afgeleide limieten ===
+#define LINEAR_X_MAX      (WHEEL_SPEED_MAX)                  // [m/s]
+#define ANGULAR_Z_MAX     ((2.0f * WHEEL_SPEED_MAX) / WHEELS_Y_DISTANCE) // [rad/s]
+
+#define MAX_INPUT_VOLTAGE              2.8
+
+#define LINEAR_X_MIN (LINEAR_X_MAX * 0.1)
+#define ANGULAR_Z_MIN (ANGULAR_Z_MAX * 0.1)
+
+#define LINEAR_RESOLUTION (LINEAR_X_MAX/MAX_INPUT_VOLTAGE*2.0)// Half scale
+#define ANGULAR_RESOLUTION (ANGULAR_Z_MAX/MAX_INPUT_VOLTAGE*2.0)// Half scale
 
 
 #if ORIENTATION == 0
@@ -158,6 +153,14 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time) {
     //Serial.printf("Linear = %02f, Angular = %02f\n", linear, angular);
     twist.linear.x = linear  * linear_resolution * SPEED_FACTOR /1000.0;
     twist.angular.z = angular * angular_resolution * SPEED_FACTOR /1000.0;
+    // Publish only if above minimum thresholds
+    if((twist.linear.x > -LINEAR_X_MIN 
+       && twist.linear.x < LINEAR_X_MIN) && 
+       (twist.angular.z > -ANGULAR_Z_MIN 
+       && twist.angular.z < ANGULAR_Z_MIN)){
+        twist.linear.x = 0;
+        twist.angular.z = 0;
+    }
     RCSOFTCHECK(rcl_publish(&twist_publisher, &twist, NULL));
 #endif
   }
